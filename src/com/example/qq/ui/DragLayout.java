@@ -1,6 +1,9 @@
 package com.example.qq.ui;
 
+import com.nineoldandroids.view.ViewHelper;
+
 import android.content.Context;
+import android.support.v4.view.ViewCompat;
 import android.support.v4.widget.ViewDragHelper;
 import android.support.v4.widget.ViewDragHelper.Callback;
 import android.util.AttributeSet;
@@ -72,21 +75,6 @@ public class DragLayout extends FrameLayout {
 			super.onViewDragStateChanged(state);
 		}
 
-		/**
-		 * 根据范围修正左边值
-		 * 
-		 * @param left
-		 * @return
-		 */
-		private int fixLeft(int left) {
-			if (left < 0) {
-				return 0;
-			} else if (left > mRange) {
-				return mRange;
-			}
-			return left;
-		}
-
 		// 2.根据建议值修正将要移动到的（横向）位置
 		// 此时没有发生真正的移动
 		public int clampViewPositionHorizontal(View child, int left, int dx) {
@@ -101,21 +89,50 @@ public class DragLayout extends FrameLayout {
 		}
 
 		// 3.当view位置改变时，处理要做的事情（更新状态，伴随动画，重绘界面）
-		// 此时view已经发生位置改变	
+		// 此时view已经发生位置改变
 		@Override
 		public void onViewPositionChanged(View changedView, int left, int top, int dx, int dy) {
 			super.onViewPositionChanged(changedView, left, top, dx, dy);
-			// 当做面板移动之后，再强制放回去
+
+			int newLeft = left;
+
 			if (changedView == mLeftContent) {
+				// 把当前变化量传递给mMainContent
+				newLeft = mMainContent.getLeft() + dx;
+				// 进行修正
+				newLeft = fixLeft(newLeft);
+
+				// 当做面板移动之后，再强制放回去
 				mLeftContent.layout(0, 0, 0 + mWidth, 0 + mHeight);
+				mMainContent.layout(newLeft, 0, newLeft + mWidth, 0 + mHeight);
 			}
+
+			dispatchEvent(newLeft);
+
+			// // 当做面板移动之后，再强制放回去
+			// if (changedView == mLeftContent) {
+			// mLeftContent.layout(0, 0, 0 + mWidth, 0 + mHeight);
+			// }
 			// 为了兼容低版本，每次修改值之后进行重绘
 			invalidate();
 		}
 
+		// 4.当view被释放时，处理事情（执行动画）
 		@Override
 		public void onViewReleased(View releasedChild, float xvel, float yvel) {
 			super.onViewReleased(releasedChild, xvel, yvel);
+			// releasedChild 被释放的子view
+			// xvel 水平速度
+			// yvel 垂直速度
+
+			// 判断执行开启/关闭
+			if (xvel == 0 && mMainContent.getLeft() > mRange / 2.0f) {
+				open();
+			} else if (xvel > 0) {
+				open();
+			} else {
+				close();
+			}
 		}
 
 	};
@@ -162,6 +179,82 @@ public class DragLayout extends FrameLayout {
 		mHeight = getMeasuredHeight();
 
 		mRange = (int) (mWidth * 0.6f);
+	}
+
+	/**
+	 * 根据范围修正左边值
+	 * 
+	 * @param left
+	 * @return
+	 */
+	private int fixLeft(int left) {
+		if (left < 0) {
+			return 0;
+		} else if (left > mRange) {
+			return mRange;
+		}
+		return left;
+	}
+
+	@Override
+	public void computeScroll() {
+		super.computeScroll();
+		// 2.持续平滑动画（高频率调用）
+		if (mDragHelper.continueSettling(true)) {
+			// 如果返回true,动画还需要继续执行
+			ViewCompat.postInvalidateOnAnimation(this);
+		}
+	}
+
+	private void dispatchEvent(int newLeft) {
+		float percent = newLeft * 1.0f / mRange;
+		// 伴随动画
+		// 1.左面板：缩放动画，平移动画，透明度动画
+		// Call requires API level 11
+		// mLeftContent.setScaleX(0.5f+0.5f*percent);
+		// mLeftContent.setScaleY(0.5f+0.5f*percent);
+		ViewHelper.setScaleX(mLeftContent, 0.5f + 0.5f * percent);
+		ViewHelper.setScaleY(mLeftContent, 0.5f + 0.5f * percent);
+		// 2.主面板：缩放动画
+		// 3.背景动画：亮度变化（颜色变化）
+	}
+
+	public void close(boolean isSmooth) {
+		int finalLeft = 0;
+		if (isSmooth) {
+			// 1.触发一个平滑动画
+			if (mDragHelper.smoothSlideViewTo(mMainContent, finalLeft, 0)) {
+				// 返回true代表还没有移动到指定位置，需要刷新界面
+				// 参数传this（child所在的ViewGroup）
+				ViewCompat.postInvalidateOnAnimation(this);
+			}
+		} else {
+			mMainContent.layout(finalLeft, 0, finalLeft + mWidth, 0 + mHeight);
+		}
+	}
+
+	public void close() {
+		close(true);
+	}
+
+	public void open(boolean isSmooth) {
+		int finalLeft = mRange;
+		if (isSmooth) {
+			// 1.触发一个平滑动画
+			if (mDragHelper.smoothSlideViewTo(mMainContent, finalLeft, 0)) {
+				// 返回true代表还没有移动到指定位置，需要刷新界面
+				// 参数传this（child所在的ViewGroup）
+				ViewCompat.postInvalidateOnAnimation(this);
+			}
+		} else {
+			mMainContent.layout(finalLeft, 0, finalLeft + mWidth, 0 + mHeight);
+		}
+
+	}
+
+	// 默认平滑移动
+	public void open() {
+		open(true);
 	}
 
 	// @Override
