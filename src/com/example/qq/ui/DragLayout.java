@@ -2,13 +2,16 @@ package com.example.qq.ui;
 
 import com.nineoldandroids.view.ViewHelper;
 
+import android.R.id;
 import android.content.Context;
+import android.graphics.Color;
+import android.graphics.PorterDuff.Mode;
+import android.provider.OpenableColumns;
 import android.support.v4.view.ViewCompat;
 import android.support.v4.widget.ViewDragHelper;
 import android.support.v4.widget.ViewDragHelper.Callback;
 import android.util.AttributeSet;
 import android.util.Log;
-import android.view.DragEvent;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
@@ -28,6 +31,27 @@ public class DragLayout extends FrameLayout {
 	private int mWidth;
 	private int mHeight;
 	private int mRange;
+	private OnDragStatusChangeListener mListener;
+	private Status mStatus = Status.Close;
+
+	/**
+	 * 状态枚举
+	 */
+	public static enum Status {
+		Close, Open, Dragging
+	}
+
+	public interface OnDragStatusChangeListener {
+		void onClose();
+
+		void onOpen();
+
+		void onDragging(float percent);
+	}
+
+	public void setOnDragStatusChangeListener(OnDragStatusChangeListener mListener) {
+		this.mListener = mListener;
+	}
 
 	public DragLayout(Context context) {
 		this(context, null);
@@ -208,15 +232,97 @@ public class DragLayout extends FrameLayout {
 
 	private void dispatchEvent(int newLeft) {
 		float percent = newLeft * 1.0f / mRange;
+
+		if (mListener!=null) {
+			mListener.onDragging(percent);
+		}
+		
+		// 更新状态，执行回调
+		Status preStatus = mStatus;
+		mStatus = updateStatus(percent);
+		if (mStatus != preStatus) {
+			// 状态发生变化
+			if (mStatus == Status.Close) {
+				// 当前为关闭状态
+				if (mListener != null) {
+					mListener.onClose();
+				}
+			} else if (mStatus == Status.Open) {
+				if (mStatus == Status.Open) {
+					mListener.onOpen();
+				}
+			}
+
+		}
 		// 伴随动画
+		animViews(percent);
+	}
+
+	private Status updateStatus(float percent) {
+		if (percent == 0.0f) {
+			return Status.Close;
+		} else if (percent == 1.0f) {
+			return Status.Open;
+		}
+		return Status.Dragging;
+	}
+
+	private void animViews(float percent) {
 		// 1.左面板：缩放动画，平移动画，透明度动画
 		// Call requires API level 11
 		// mLeftContent.setScaleX(0.5f+0.5f*percent);
 		// mLeftContent.setScaleY(0.5f+0.5f*percent);
-		ViewHelper.setScaleX(mLeftContent, 0.5f + 0.5f * percent);
+		ViewHelper.setScaleX(mLeftContent, evaluate(percent, 0.5f, 1.0f));
 		ViewHelper.setScaleY(mLeftContent, 0.5f + 0.5f * percent);
+		// 平移动画：-mWidth/2->0
+		ViewHelper.setTranslationX(mLeftContent, evaluate(percent, -mWidth / 2.0f, 0.0f));
+		// 透明度
+		ViewHelper.setAlpha(mLeftContent, evaluate(percent, 0.5f, 1.0f));
 		// 2.主面板：缩放动画
+		ViewHelper.setScaleX(mMainContent, evaluate(percent, 1.0f, 0.8f));
+		ViewHelper.setScaleY(mMainContent, evaluate(percent, 1.0f, 0.8f));
 		// 3.背景动画：亮度变化（颜色变化）
+		getBackground().setColorFilter((int) evaluateColor(percent, Color.BLACK, Color.TRANSPARENT), Mode.SRC_OVER);
+	}
+
+	/**
+	 * 颜色变化过度
+	 * 
+	 * @param fraction
+	 * @param startValue
+	 * @param endValue
+	 * @return
+	 */
+	public Object evaluateColor(float fraction, Object startValue, Object endValue) {
+		int startInt = (Integer) startValue;
+		int startA = (startInt >> 24) & 0xff;
+		int startR = (startInt >> 16) & 0xff;
+		int startG = (startInt >> 8) & 0xff;
+		int startB = startInt & 0xff;
+
+		int endInt = (Integer) endValue;
+		int endA = (endInt >> 24) & 0xff;
+		int endR = (endInt >> 16) & 0xff;
+		int endG = (endInt >> 8) & 0xff;
+		int endB = endInt & 0xff;
+
+		return (int) ((startA + (int) (fraction * (endA - startA))) << 24)
+				| (int) ((startR + (int) (fraction * (endR - startR))) << 16)
+				| (int) ((startG + (int) (fraction * (endG - startG))) << 8)
+				| (int) ((startB + (int) (fraction * (endB - startB))));
+	}
+
+	/**
+	 * 估值器
+	 * 
+	 * @param fraction
+	 * @param startValue
+	 * @param endValue
+	 * @return
+	 */
+	public Float evaluate(float fraction, Number startValue, Number endValue) {
+		float startFloat = startValue.floatValue();
+		return startFloat + fraction * (endValue.floatValue() - startFloat);
 	}
 
 	public void close(boolean isSmooth) {
