@@ -34,6 +34,14 @@ public class DragLayout extends FrameLayout {
 	private OnDragStatusChangeListener mListener;
 	private Status mStatus = Status.Close;
 
+	public Status getStatus() {
+		return mStatus;
+	}
+
+	public void setStatus(Status mStatus) {
+		this.mStatus = mStatus;
+	}
+
 	/**
 	 * 状态枚举
 	 */
@@ -233,10 +241,10 @@ public class DragLayout extends FrameLayout {
 	private void dispatchEvent(int newLeft) {
 		float percent = newLeft * 1.0f / mRange;
 
-		if (mListener!=null) {
+		if (mListener != null) {
 			mListener.onDragging(percent);
 		}
-		
+
 		// 更新状态，执行回调
 		Status preStatus = mStatus;
 		mStatus = updateStatus(percent);

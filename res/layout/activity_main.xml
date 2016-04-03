@@ -27,7 +27,8 @@
         </ListView>
     </LinearLayout>
 
-    <LinearLayout
+    <com.example.qq.ui.MainLinearLayout
+        android:id="@+id/mll"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:background="#fff"
@@ -58,6 +59,6 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent" >
         </ListView>
-    </LinearLayout>
+    </com.example.qq.ui.MainLinearLayout>
 
 </com.example.qq.ui.DragLayout>

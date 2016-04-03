@@ -5,6 +5,7 @@ import java.util.Random;
 
 import com.example.qq.ui.DragLayout;
 import com.example.qq.ui.DragLayout.OnDragStatusChangeListener;
+import com.example.qq.ui.MainLinearLayout;
 import com.example.qq.utils.Cheeses;
 import com.example.qq.utils.ToastUtils;
 import com.nineoldandroids.animation.ObjectAnimator;
@@ -33,6 +34,7 @@ public class MainActivity extends Activity {
 		final ListView mLeftList = (ListView) findViewById(R.id.lv_left);
 		final ListView mMainList = (ListView) findViewById(R.id.lv_main);
 		final ImageView mHeaderImage = (ImageView) findViewById(R.id.iv_header);
+		final MainLinearLayout mMainLinearLayout = (MainLinearLayout) findViewById(R.id.mll);
 		// 查找DragLayout设置监听
 		DragLayout mDragLayout = (DragLayout) findViewById(R.id.dl);
 		mDragLayout.setOnDragStatusChangeListener(new OnDragStatusChangeListener() {
@@ -65,6 +67,8 @@ public class MainActivity extends Activity {
 			}
 		});
 
+		// 设置引用
+		mMainLinearLayout.setDragLayout(mDragLayout);
 		mLeftList.setAdapter(
 				new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, Cheeses.sCheeseStrings) {
 					@Override
